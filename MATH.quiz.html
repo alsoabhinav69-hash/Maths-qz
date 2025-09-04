@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Math & Trig Quiz</title>
+<style>
+body {background-color:#AEDFF7; font-family:Arial,sans-serif; display:flex; justify-content:center; align-items:center; min-height:100vh; margin:0;}
+#game,#levelSelect,#endScreen,#confetti {text-align:center;background:#E0F7FA;padding:30px 50px;border-radius:20px;box-shadow:0 5px 15px rgba(0,0,0,0.2);width:400px;}
+h2 {margin-bottom:25px;}
+.option-btn,.level-btn {background-color:#4A90E2;color:white;border:none;padding:15px 30px;margin:10px 0;border-radius:10px;cursor:pointer;font-size:18px;width:100%;transition:0.3s;}
+.option-btn:hover,.level-btn:hover {background-color:#357ABD;}
+.correct {background-color:#4CAF50 !important;}
+.wrong {background-color:#F44336 !important;}
+#timer,#score {font-weight:bold;}
+#hearts {margin-top:15px;font-size:24px;}
+#timerBarContainer {width:100%;height:15px;background-color:#B3E5FC;border-radius:10px;margin-bottom:15px;overflow:hidden;}
+#timerBar {height:100%;width:100%;background-color:#4A90E2;transition:width 1s linear;}
+#confetti {position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;display:none;}
+.confetti-piece {position:absolute;width:10px;height:10px;opacity:0.9;transform:rotate(45deg);animation:fall 3s linear forwards;}
+@keyframes fall {0%{transform:translateY(0) rotate(0deg);}100%{transform:translateY(100vh) rotate(360deg);}}
+#endScreen h2 {color:black;font-weight:bold;}
+</style>
+</head>
+<body>
+
+<div id="levelSelect">
+  <h2>Select Level</h2>
+  <button class="level-btn" onclick="startGame('easy')">Easy</button>
+  <button class="level-btn" onclick="startGame('medium')">Medium</button>
+  <button class="level-btn" onclick="startGame('hard')">Hard</button>
+  <button class="level-btn" onclick="startGame('extraHard')">Extra Hard</button>
+</div>
+
+<div id="game" style="display:none;">
+  <h2 id="question">Question here</h2>
+  <div id="timerBarContainer"><div id="timerBar"></div></div>
+  <button id="option1" class="option-btn">Option 1</button>
+  <button id="option2" class="option-btn">Option 2</button>
+  <p>Time left: <span id="timer">90</span> seconds</p>
+  <p>Score: <span id="score">0</span></p>
+  <p>Hearts: <span id="hearts">❤️❤️❤️❤️❤️</span></p>
+</div>
+
+<div id="endScreen" style="display:none;">
+  <h2>Well done!</h2>
+  <p>Your Score: <span id="finalScore">0</span></p>
+  <p>Hearts Remaining: <span id="finalHearts">0</span></p>
+  <button class="level-btn" onclick="restartGame()">Play Again</button>
+</div>
+
+<div id="confetti"></div>
+
+<script>
+let levels={easy:[],medium:[],hard:[],extraHard:[]};
+
+function generateQuestions(){
+  // EASY: arithmetic
+  for(let i=0;i<50;i++){
+    let a=Math.floor(Math.random()*50)+1, b=Math.floor(Math.random()*50)+1;
+    let ops=['+','-','*','/']; let op=ops[Math.floor(Math.random()*4)];
+    let answer;
+    if(op=='+') answer=a+b;
+    else if(op=='-') answer=a-b;
+    else if(op=='*') answer=a*b;
+    else answer=parseFloat((a/b).toFixed(2));
+    let wrong=answer+(Math.random()<0.5?1:-1)*Math.floor(Math.random()*5+1);
+    levels.easy.push({q:`${a} ${op} ${b} = ?`,options:[answer,wrong],answer:answer});
+  }
+
+  // MEDIUM: squares, roots, sin degree
+  const degMap={30:"1/2",45:"√2/2",60:"√3/2",90:"1"}, degs=[30,45,60,90];
+  for(let i=0;i<50;i++){
+    let num=Math.floor(Math.random()*20)+1;
+    levels.medium.push({q:`Square of ${num} = ?`,options:[num*num,num*num+1],answer:num*num});
+    levels.medium.push({q:`√${num*num} = ?`,options:[num,num+1],answer:num});
+    let deg=degs[Math.floor(Math.random()*degs.length)];
+    levels.medium.push({q:`sin ${deg}° = ?`,options:[degMap[deg],"Wrong"],answer:degMap[deg]});
+  }
+
+  // HARD: derivatives, integrals, trig radians
+  const rad=["π/6","π/4","π/3","π/2","2π/3","3π/4"];
+  for(let i=0;i<50;i++){
+    let x=Math.floor(Math.random()*10)+1;
+    levels.hard.push({q:`d/dx ${x}x² = ?`,options:[`${2*x}x`,`x²`],answer:`${2*x}x`});
+    levels.hard.push({q:`∫${x} dx = ?`,options:[`${x}x`,`${x}²/2`],answer:`${x}x`});
+    let r=rad[Math.floor(Math.random()*rad.length)];
+    levels.hard.push({q:`sin(${r}) = ?`,options:["√3/2","1/2"],answer:"√3/2"});
+  }
+
+  // EXTRA HARD: tricky multi-step
+  for(let i=0;i<50;i++){
+    let x=Math.floor(Math.random()*10)+1;
+    levels.extraHard.push({q:`d/dx sin(${x}x) = ?`,options:[`cos(${x}x)`,`-sin(${x}x)`],answer:`cos(${x}x)`});
+    levels.extraHard.push({q:`∫${x}^2 dx = ?`,options:[`${x}^3/3`,`${x}^3/2`],answer:`${x}^3/3`});
+  }
+}
+generateQuestions();
+
+let score=0,hearts=5,currentQuestion=0,timeLeft=90,timer;
+let selectedLevel=[];
+
+const gameDiv=document.getElementById("game"), levelDiv=document.getElementById("levelSelect"), endScreen=document.getElementById("endScreen");
+const option1=document.getElementById("option1"), option2=document.getElementById("option2");
+const timerBar=document.getElementById("timerBar"), heartsSpan=document.getElementById("hearts");
+const finalScore=document.getElementById("finalScore"), finalHearts=document.getElementById("finalHearts");
+const confettiContainer=document.getElementById("confetti");
+
+function shuffle(array){for(let i=array.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[array[i],array[j]]=[array[j],array[i]];}}
+
+function startGame(level){
+  selectedLevel=[...levels[level]].slice(0,50);
+  shuffle(selectedLevel); score=0; hearts=5; currentQuestion=0;
+  heartsSpan.innerHTML="❤️❤️❤️❤️❤️"; document.getElementById("score").innerText=score;
+  levelDiv.style.display="none"; gameDiv.style.display="block"; endScreen.style.display="none";
+  showQuestion();
+}
+
+function showQuestion(){
+  if(currentQuestion>=selectedLevel.length){endGame(); return;}
+  option1.className="option-btn"; option2.className="option-btn";
+  const q=selectedLevel[currentQuestion];
+  document.getElementById("question").innerText=q.q;
+  option1.innerText=q.options[0]; option2.innerText=q.options[1];
+  timeLeft=90; document.getElementById("timer").innerText=timeLeft; timerBar.style.width="100%";
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    timeLeft--; document.getElementById("timer").innerText=timeLeft;
+    timerBar.style.width=(timeLeft/90*100)+"%";
+    if(timeLeft<=0){loseHeart(); nextQuestion();}
+  },1000);
+}
+
+function loseHeart(){hearts--; heartsSpan.innerHTML="❤️".repeat(hearts); if(hearts<=0){alert("Game Over!"); restartGame();}}
+
+function checkAnswer(optionBtn){
+  const selected=optionBtn.innerText, correct=selectedLevel[currentQuestion].answer;
+  if(selected==correct){score++; document.getElementById("score").innerText=score;}
+  else{optionBtn.classList.add("wrong"); loseHeart();}
+  clearInterval(timer);
+  setTimeout(()=>{currentQuestion++; showQuestion();},500);
+}
+
+function nextQuestion(){currentQuestion++; showQuestion();}
+
+function endGame(){gameDiv.style.display="none"; endScreen.style.display="block"; finalScore.innerText=score; finalHearts.innerText=hearts; triggerConfetti();}
+
+function restartGame(){endScreen.style.display="none"; levelDiv.style.display="block";}
+
+function triggerConfetti(){confettiContainer.style.display="block";for(let i=0;i<100;i++){const c=document.createElement("div");c.classList.add("confetti-piece");c.style.backgroundColor=`hsl(${Math.random()*360},70%,50%)`;c.style.left=Math.random()*100+"vw";c.style.animationDuration=(2+Math.random()*3)+"s";confettiContainer.appendChild(c);setTimeout(()=>c.remove(),5000);} setTimeout(()=>{confettiContainer.style.display="none";},5000);}
+
+option1.addEventListener("click",()=>checkAnswer(option1));
+option2.addEventListener("click",()=>checkAnswer(option2));
+</script>
+</body>
+</html>
